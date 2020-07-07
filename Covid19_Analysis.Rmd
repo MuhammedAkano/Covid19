@@ -1,0 +1,617 @@
+---
+title: "Covid19"
+output: html_notebook
+---
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(biwavelet)
+library(waveslim)
+library(wmtsa)
+
+#read in csv
+cvid19 = read.csv("CovInd.csv")
+cvid19 = cvid19[,-9]
+cvid19$Date = as.Date(cvid19$Date, format = "%d/%m/%y")
+
+
+covid19 = read.csv("CovInd.csv")
+covid19 = covid19[,-9]
+stu = covid19[,c(1,2)]
+
+#Frequency values
+covid19 = Frequency(covid19[,-c(1,2)])
+covid19 = cbind(stu,covid19)
+
+#split into 10 tables
+Df2 = covid19 %>%
+  group_by(Entity) %>% 
+  arrange(Entity)%>%
+  tidyr::nest()
+```
+Exploratory Analysis
+```{r}
+#Noil price and gbp
+EDA_cc = cvid19 %>%
+  group_by(Date) %>%
+  summarise(CC = sum(New.Cases))
+GDOWE = cvid19$AllSharePrice[cvid19$Entity == "Belgium"]
+GDOW = cvid19$AllSharePrice[cvid19$Entity == "United States"]
+WTI_A = cvid19$WTI_oilP[cvid19$Entity == "United States"]
+GBP = cvid19$Exchange[cvid19$Entity == "United Kingdom"]
+EUR = cvid19$Exchange[cvid19$Entity == "Belgium"]
+USD = cvid19$Exchange[cvid19$Entity == "United States"]
+EDA_cc$GDOWE = GDOWE 
+EDA_cc$GDOW = GDOW
+EDA_cc$WTI = WTI_A
+EDA_cc$EURUSD = EUR
+EDA_cc$GBPUSD = GBP
+EDA_cc$USDEUR = USD
+
+EDaD =  data.frame(EDA_cc$Date) 
+EDA_cc = as.data.frame(Frequency(EDA_cc[,-1]))
+EDA_cc = cbind(EDaD$EDA_cc.Date,EDA_cc)
+names(EDA_cc)[1] = "Date"
+
+#Time series
+library(ggplot2)
+library(hrbrthemes)
+
+# Cases All over the world
+ggplot(EDA_cc, aes(x=Date, y=CC)) +
+  geom_line( color="#69b3a2") 
+
+#GDOWE
+ggplot(EDA_cc, aes(x=Date, y=GDOWE)) +
+  geom_line( color="#69b3a2") 
+
+# Oil Price
+ggplot(EDA_cc, aes(x=Date, y=WTI)) +
+  geom_line( color="#69b3a2") 
+
+#GDOW
+ggplot(EDA_cc, aes(x=Date, y=GDOW)) +
+  geom_line( color="#69b3a2") 
+
+# USD/EUR
+ggplot(EDA_cc, aes(x=Date, y=USDEUR)) +
+  geom_line( color="#69b3a2") 
+
+#EUR/USD
+ggplot(EDA_cc, aes(x=Date, y=EURUSD)) +
+  geom_line( color="#69b3a2") 
+
+#GBP/USD
+ggplot(EDA_cc, aes(x=Date, y=GBPUSD)) +
+  geom_line( color="#69b3a2") 
+
+
+```
+
+Belgium
+```{r}
+######Belgium
+Bel = Df2$data[1]
+Bel = as.data.frame(Bel)
+
+###Exchange Rate Vs ConCases
+Ex_eur = data.frame(1:70,Bel$Exchange)
+Bel_con = data.frame(1:70,Bel$New.Cases)
+
+plot(biwavelet::wt(Ex_eur), ylab = "Frequency",xlab = "Time",main = "Continuous Wavelet Spectrum: Eur (Base) ")
+plot(biwavelet::wt(Bel_con),ylab = "Frequency",xlab = "Time", main = "Continuous Wavelet Spectrum: Belgium Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases(Belgium)"
+wtc.sB = biwavelet::wtc(Ex_eur,Bel_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+
+####All share Price and Concases
+ASP = data.frame(1:70,Bel$AllSharePrice)
+plot(biwavelet::wt(ASP), ylab = "Frequency",xlab = "Time", main = "Continuous Wavelet Spectrum: All Share Prices (GDOWE)")
+
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(Belgium)"
+wtc.sB = biwavelet::wtc(ASP,Bel_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+
+
+####GRSI vs ASP
+GRSI = data.frame(1:70,Bel$GRSI)
+plot(biwavelet::wt(GRSI), ylab = "Frequency",xlab = "Time",main = "Continuous Wavelet Spectrum: GRSI (Belgium)")
+
+title = "Wavelet Coherence: GRSI(Belgium) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI(Belgium) - EUR"
+wtc.sB = biwavelet::wtc(GRSI,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+#### Oilprice vs ConCases
+WTI = data.frame(1:70,Bel$WTI_oilP)
+plot(biwavelet::wt(WTI) , ylab = "Frequency",xlab = "Time", main = "Continuous Wavelet Spectrum: WTI")
+
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Belgium)"
+wtc.sB = biwavelet::wtc(WTI,Bel_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+FRANCE
+```{r}
+######France
+FR = Df2$data[2]
+FR = as.data.frame(FR)
+
+###Exchange Rate Vs ConCases
+FR_con = data.frame(1:70,FR$New.Cases)
+plot(biwavelet::wt(FR_con), ylab = "Frequency",xlab = "Time", main = "Continuous Wavelet Spectrum: France Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases (France)"
+wtc.sB = biwavelet::wtc(Ex_eur,FR_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases (France)"
+wtc.sB = biwavelet::wtc(ASP,FR_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_FR = data.frame(1:70,FR$GRSI)
+plot(biwavelet::wt(GRSI_FR), ylab = "Frequency",xlab = "Time", main = "Continuous Wavelet Spectrum: GRSI (France)")
+
+title = "Wavelet Coherence: GRSI (France) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_FR,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (France) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_FR,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (France)"
+wtc.sB = biwavelet::wtc(WTI,FR_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Ireland
+```{r}
+######Ireland
+IE = Df2$data[3]
+IE = as.data.frame(IE)
+
+###Exchange Rate Vs ConCases
+IE_con = data.frame(1:70,IE$New.Cases)
+plot(biwavelet::wt(IE_con),  ylab = "Frequency",xlab = "Time",main = "Continuous Wavelet Spectrum: Ireland Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases (Ireland)"
+wtc.sB = biwavelet::wtc(Ex_eur,IE_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases (Ireland)"
+wtc.sB = biwavelet::wtc(ASP,IE_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_IE = data.frame(1:70,IE$GRSI)
+plot(biwavelet::wt(GRSI_IE),  ylab = "Frequency",xlab = "Time",main = "Continuous Wavelet Spectrum: GRSI (Ireland)")
+
+title = "Wavelet Coherence: GRSI (Ireland) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_IE,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (Ireland) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_IE,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Ireland)"
+wtc.sB = biwavelet::wtc(WTI,IE_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Italy
+```{r}
+######Italy
+IT = Df2$data[5]
+IT = as.data.frame(IT)
+
+###Exchange Rate Vs ConCases
+IT_con = data.frame(1:70,IT$New.Cases)
+plot(biwavelet::wt(IT_con),ylab = "Frequency",xlab = "Time", main = "Continuous Wavelet Spectrum: Italy Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases (Italy)"
+wtc.sB = biwavelet::wtc(Ex_eur,IT_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases (Italy)"
+wtc.sB = biwavelet::wtc(ASP,IT_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.12, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_IT = data.frame(1:70,IT$GRSI)
+plot(biwavelet::wt(GRSI_IT), main = "continuous Wavelet Spectrum: GRSI (Italy)")
+
+title = "Wavelet Coherence: GRSI (Italy) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_IT,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (Italy) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_IT,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Italy)"
+wtc.sB = biwavelet::wtc(WTI,IT_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Netherlands
+```{r}
+######Netherlands
+NLD = Df2$data[5]
+NLD = as.data.frame(NLD)
+
+###Exchange Rate Vs ConCases
+NLD_con = data.frame(1:70,NLD$New.Cases)
+plot(biwavelet::wt(NLD_con), main = "continuous Wavelet Spectrum: Netherlands Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases(Netherlands)"
+wtc.sB = biwavelet::wtc(Ex_eur,NLD_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(Netherlands)"
+wtc.sB = biwavelet::wtc(ASP,NLD_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_NLD = data.frame(1:70,NLD$GRSI)
+plot(biwavelet::wt(GRSI_NLD), main = "continuous Wavelet Spectrum: GRSI (Netherlands)")
+
+title = "Wavelet Coherence: GRSI (Netherlands) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_NLD,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (Netherlands) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_NLD,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Netherlands)"
+wtc.sB = biwavelet::wtc(WTI,NLD_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Spain
+```{r}
+######Spain
+ESP = Df2$data[6]
+ESP = as.data.frame(ESP)
+
+###Exchange Rate Vs ConCases
+ESP_con = data.frame(1:70,ESP$New.Cases)
+plot(biwavelet::wt(ESP_con), main = "continuous Wavelet Spectrum: Spain Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases(Spain)"
+wtc.sB = biwavelet::wtc(Ex_eur,ESP_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(Spain)"
+wtc.sB = biwavelet::wtc(ASP,ESP_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_ESP = data.frame(1:70,ESP$GRSI)
+plot(biwavelet::wt(GRSI_ESP), main = "continuous Wavelet Spectrum: GRSI (Spain)")
+
+title = "Wavelet Coherence: GRSI (Spain) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_ESP,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (Spain) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_ESP,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Spain)"
+wtc.sB = biwavelet::wtc(WTI,ESP_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Sweden
+```{r}
+######Sweden
+SWE = Df2$data[7]
+SWE = as.data.frame(SWE)
+
+###Exchange Rate Vs ConCases
+SWE_con = data.frame(1:70,SWE$New.Cases)
+plot(biwavelet::wt(SWE_con), main = "continuous Wavelet Spectrum: Sweden Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases(Sweden)"
+wtc.sB = biwavelet::wtc(Ex_eur,SWE_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(Sweden)"
+wtc.sB = biwavelet::wtc(ASP,SWE_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_SWE = data.frame(1:70,SWE$GRSI)
+plot(biwavelet::wt(GRSI_SWE), main = "continuous Wavelet Spectrum: GRSI (Sweden)")
+
+title = "Wavelet Coherence: GRSI (Sweden) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_SWE,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (Sweden) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_SWE,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Sweden)"
+wtc.sB = biwavelet::wtc(WTI,SWE_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Switzerland
+```{r}
+######Switzerland
+CH = Df2$data[8]
+CH = as.data.frame(CH)
+
+###Exchange Rate Vs ConCases
+CH_con = data.frame(1:70,CH$New.Cases)
+plot(biwavelet::wt(CH_con), main = "continuous Wavelet Spectrum: Switzerland Confirmed Cases ")
+
+
+title = "Wavelet Coherence: EUR - Confirmed Cases(Switzerland)"
+wtc.sB = biwavelet::wtc(Ex_eur,CH_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(Switzerland)"
+wtc.sB = biwavelet::wtc(ASP,CH_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_CH = data.frame(1:70,CH$GRSI)
+plot(biwavelet::wt(GRSI_CH), main = "continuous Wavelet Spectrum: GRSI (Switzerland)")
+
+title = "Wavelet Coherence: GRSI (Switzerland) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_CH,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (Switzerland) - EUR"
+wtc.sB = biwavelet::wtc(GRSI_CH,Ex_eur, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (Switzerland)"
+wtc.sB = biwavelet::wtc(WTI,CH_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+United Kingdom
+```{r}
+######UK
+UK = Df2$data[9]
+UK = as.data.frame(UK)
+
+###Exchange Rate Vs ConCases
+Ex_GBP = data.frame(1:70,UK$Exchange)
+plot(biwavelet::wt(Ex_GBP), main = "continuous Wavelet Spectrum: GBP (Base) ")
+
+
+UK_con = data.frame(1:70,UK$New.Cases)
+plot(biwavelet::wt(UK_con), main = "continuous Wavelet Spectrum: UK Confirmed Cases ")
+
+
+title = "Wavelet Coherence: GBP - Confirmed Cases(UK)"
+wtc.sB = biwavelet::wtc(Ex_GBP,UK_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(UK)"
+wtc.sB = biwavelet::wtc(ASP,UK_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_UK = data.frame(1:70,UK$GRSI)
+plot(biwavelet::wt(GRSI_UK), main = "continuous Wavelet Spectrum: GRSI (UK)")
+
+title = "Wavelet Coherence: GRSI (UK) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_UK,ASP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (UK) - GBP"
+wtc.sB = biwavelet::wtc(GRSI_UK,Ex_GBP, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (UK)"
+wtc.sB = biwavelet::wtc(WTI,UK_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+United States of America
+```{r}
+######USA
+USA = Df2$data[10]
+USA = as.data.frame(USA)
+
+###Exchange Rate Vs ConCases
+Ex_USD = data.frame(1:70,USA$Exchange)
+plot(biwavelet::wt(Ex_USD), main = "continuous Wavelet Spectrum: USD (Base) ")
+
+
+USA_con = data.frame(1:70,USA$New.Cases)
+plot(biwavelet::wt(USA_con), main = "continuous Wavelet Spectrum: USA Confirmed Cases ")
+
+
+title = "Wavelet Coherence: USD - Confirmed Cases(USA)"
+wtc.sB = biwavelet::wtc(Ex_USD,USA_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####All share Price and Concases
+ASP_U = data.frame(1:70,USA$AllSharePrice)
+plot(biwavelet::wt(Ex_USD), main = "All Share Price (GDOW)")
+
+
+title = "Wavelet Coherence: All Share Price - Confirmed Cases(USA)"
+wtc.sB = biwavelet::wtc(ASP_U,USA_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+####GRSI vs ASP
+GRSI_USA = data.frame(1:70,USA$GRSI)
+plot(biwavelet::wt(GRSI_USA), main = "continuous Wavelet Spectrum: GRSI (USA)")
+
+title = "Wavelet Coherence: GRSI (USA) - All Share Price"
+wtc.sB = biwavelet::wtc(GRSI_USA,ASP_U, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+##### GRSI vs ExRate
+title = "Wavelet Coherence: GRSI (USA) - USD"
+wtc.sB = biwavelet::wtc(GRSI_USA,Ex_USD, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#### Oilprice vs ConCases
+title = "Wavelet Coherence: Oil Price (WTI) - Confirmed Cases (USA)"
+wtc.sB = biwavelet::wtc(WTI,USA_con, nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+```
+Partial wavelet coherence - Exchange&ASP, oil Price, confirmed cases
+```{r}
+#USD
+title = "PWTC: USD, Oil Price (WTI), Confirmed cases (USA)"
+wtc.sB = biwavelet::pwtc(Ex_USD,WTI,USA_con,nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#GBP
+title = "PWTC: GBP, Oil Price (WTI), Confirmed cases (UK)"
+wtc.sB = biwavelet::pwtc(Ex_GBP,WTI,UK_con,nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+#Eur
+Eurosp = cvid19[1:560,]
+
+Eurosp = Eurosp %>%
+  group_by(Date) %>%
+  summarise(ConfiCa = sum (New.Cases))
+
+Eurosp = Frequency(Eurosp[,-1])
+
+Eur_con = data.frame(1:70,Eurosp)
+
+
+title = "PWTC: USD, Oil Price (WTI), Confirmed cases (Europe)"
+wtc.sB = biwavelet::pwtc(Ex_USD,WTI,USA_con,nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+title = "PWTC: GDOWE, Oil Price (WTI), Confirmed cases (Europe)"
+wtc.sB = biwavelet::pwtc(ASP,WTI,Eur_con,nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+title = "PWTC: GDOW, Oil Price (WTI), Confirmed cases (USA)"
+wtc.sB = biwavelet::pwtc(ASP_U,WTI,USA_con,nrands = 10)
+par(oma = c(0, 0,0,1), mar = c(5, 4,4,5) + 0.1)
+plot(wtc.sB,plot.phase = T, lty.coi = 1, col.coi = "grey",lwd.coi = 2,lwd.sig = 2, arrow.lwd = 0.03,arrow.len = 0.04, ylab = "Frequency",xlab = "Time", plot.cb = "True", main = title)
+
+
+
+```
